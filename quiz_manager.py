@@ -10,17 +10,21 @@ import random
 from datetime import datetime
 
 # --- CẤU HÌNH TRANG ---
-st.set_page_config(page_title="Quiz Master Pro", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="Hệ thống ôn thi trắc nghiệm", layout="wide", page_icon="📚")
 
-# CSS TỔNG LỰC: TÀNG HÌNH + GIAO DIỆN HIỆN ĐẠI
+# CSS "TÀNG HÌNH" VÀ GIAO DIỆN TỐI GIẢN
 st.markdown("""
     <style>
-    /* ẨN TOÀN BỘ RÁC CỦA STREAMLIT */
+    /* 1. Ẩn thanh header chứa nút Share, Star, Edit, GitHub */
     header {visibility: hidden;}
-    footer {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
     
-    /* GHOST MODE CHO CHỮ manhducdeptrai */
+    /* 2. Ẩn dòng chữ 'Made with Streamlit' dưới cùng */
+    footer {visibility: hidden;}
+    
+    /* 3. Ẩn menu 3 gạch */
+    #MainMenu {visibility: hidden;}
+
+    /* 4. Ghost Mode cho thương hiệu manhducdeptrai */
     div.stButton > button:first-child {
         border: none;
         background: transparent;
@@ -28,17 +32,22 @@ st.markdown("""
         padding: 0;
         margin: 0;
         font-size: 0.85rem;
+        font-family: sans-serif;
+        font-weight: normal;
         text-align: left;
     }
-    div.stButton > button:first-child:hover { color: #ff4b4b; background: transparent; }
+    div.stButton > button:first-child:hover {
+        color: #ff4b4b;
+        background: transparent;
+    }
     
-    /* LÀM ĐẸP CÁC KHỐI NỘI DUNG */
-    .stAlert { border-radius: 15px; border: none; }
-    .stRadio > label { font-weight: bold; color: #1E1E1E; }
+    /* Làm đẹp giao diện */
+    .stAlert { border-radius: 12px; }
+    .stRadio > label { font-size: 1.1rem; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 1. KẾT NỐI (DÙNG CACHE) ---
+# --- 1. KẾT NỐI (DÙNG CACHE ĐỂ TỐC ĐỘ CAO) ---
 @st.cache_resource
 def get_gspread_client():
     try:
@@ -52,7 +61,7 @@ def get_db_connection():
     client = get_gspread_client()
     return client.open("QuizDatabase") if client else None
 
-# --- 2. ĐỌC DỮ LIỆU (TTL=60 ĐỂ CẬP NHẬT NHANH) ---
+# --- 2. ĐỌC DỮ LIỆU ---
 @st.cache_data(ttl=60, show_spinner=False)
 def get_all_topics():
     sh = get_db_connection()
@@ -63,7 +72,7 @@ def get_all_topics():
         return sorted(data[1:], key=lambda x: x[0], reverse=True) if len(data) > 1 else []
     except: return []
 
-@st.cache_data(show_spinner="Đang lấy dữ liệu từ đám mây...")
+@st.cache_data(show_spinner="Đang truy xuất bộ đề...")
 def get_questions_by_topic(topic_id):
     sh = get_db_connection()
     if not sh: return []
@@ -71,10 +80,11 @@ def get_questions_by_topic(topic_id):
         ws = sh.worksheet("Questions")
         all_rows = ws.get_all_values()
         str_tid = str(topic_id)
-        return [{"question": r[1], "options": json.loads(r[2]), "correct_option": r[3]} for r in all_rows[1:] if r[0] == str_tid]
+        return [{"question": r[1], "options": json.loads(r[2]), "correct_option": r[3]} 
+                for r in all_rows[1:] if r[0] == str_tid]
     except: return []
 
-# --- 3. GHI & XÓA ---
+# --- 3. GHI & XÓA DỮ LIỆU ---
 def save_topic_to_db(topic_name, questions_list):
     sh = get_db_connection()
     if not sh: return False
@@ -83,7 +93,8 @@ def save_topic_to_db(topic_name, questions_list):
         topic_id = int(time.time())
         topics_ws.append_row([topic_id, topic_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
         questions_ws = sh.worksheet("Questions")
-        rows = [[topic_id, q['question'], json.dumps(q['options'], ensure_ascii=False), q['correct_option']] for q in questions_list]
+        rows = [[topic_id, q['question'], json.dumps(q['options'], ensure_ascii=False), q['correct_option']] 
+                for q in questions_list]
         questions_ws.append_rows(rows)
         get_all_topics.clear()
         return True
@@ -102,10 +113,10 @@ def delete_topic_from_db(topic_id):
         new_rows = [rows[0]] + [r for r in rows[1:] if r[0] != str_tid]
         q_ws.clear(); q_ws.update(new_rows)
         get_all_topics.clear(); get_questions_by_topic.clear()
-        st.toast("Đã xóa vĩnh viễn!", icon="🗑️")
+        st.toast("Đã xóa bộ đề!", icon="🗑️")
     except: pass
 
-# --- 4. XỬ LÝ WORD ---
+# --- 4. XỬ LÝ FILE WORD THÔNG MINH ---
 def is_correct_answer(para):
     if para.style and 'Strong' in para.style.name: return True
     for run in para.runs:
@@ -143,14 +154,16 @@ if 'user_answers' not in st.session_state: st.session_state.user_answers = {}
 if 'show_admin' not in st.session_state: st.session_state.show_admin = False
 
 with st.sidebar:
-    st.title("⚡ Quiz Master Pro")
+    st.title("⚡ Quiz Master")
+    
+    # NÚT BÍ MẬT manhducdeptrai
     if st.button("manhducdeptrai"):
         st.session_state.show_admin = not st.session_state.show_admin
         st.rerun()
 
     is_admin = False
     if st.session_state.show_admin:
-        pw = st.text_input("Mã bảo vệ:", type="password")
+        pw = st.text_input("Mã Admin:", type="password")
         is_admin = (pw == "manhducdeptrai")
 
     st.divider()
@@ -170,28 +183,28 @@ with st.sidebar:
                 if c2.button("🗑️", key=f"del_{t_id}"): delete_topic_from_db(t_id); st.rerun()
 
     with tab2:
-        up = st.file_uploader("Upload Word", type=['docx'])
+        up = st.file_uploader("Upload file Word (.docx)", type=['docx'])
         if up:
             name = st.text_input("Tên bộ đề:", value=up.name.replace(".docx", ""))
-            if st.button("Lưu ngay", type="primary"):
+            if st.button("Lưu ngay lên Cloud", type="primary"):
                 qs = parse_docx(up)
                 if qs and save_topic_to_db(name, qs):
-                    st.success("Đã lưu thành công!"); time.sleep(1); st.rerun()
+                    st.success("Đã lưu!"); time.sleep(1); st.rerun()
 
-# --- MÀN HÌNH LÀM BÀI / MÀN HÌNH CHÀO ---
+# --- MÀN HÌNH CHÍNH ---
 if 'current_topic_id' in st.session_state and st.session_state.quiz_data:
     indices = st.session_state.quiz_indices
     total = len(st.session_state.quiz_data)
     
-    st.markdown(f"### 🎯 Đang học: {next((t[1] for t in get_all_topics() if t[0] == st.session_state.current_topic_id), 'Bộ đề')}")
+    st.markdown(f"### 📖 {next((t[1] for t in get_all_topics() if t[0] == st.session_state.current_topic_id), 'Đang thi')}")
     
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        sel_n = st.selectbox("Nhảy đến câu:", range(1, total + 1), index=st.session_state.q_index)
+    c_nav1, c_nav2 = st.columns([2, 1])
+    with c_nav1:
+        sel_n = st.selectbox("Nhảy nhanh đến câu:", range(1, total + 1), index=st.session_state.q_index)
         if sel_n != st.session_state.q_index + 1:
             st.session_state.q_index = sel_n - 1; st.rerun()
-    with col2:
-        st.metric("Điểm số", f"{st.session_state.score}/{len(st.session_state.user_answers)}")
+    with c_nav2:
+        st.metric("Điểm", f"{st.session_state.score}/{len(st.session_state.user_answers)}")
 
     q = st.session_state.quiz_data[indices[st.session_state.q_index]]
     st.markdown("---")
@@ -200,12 +213,12 @@ if 'current_topic_id' in st.session_state and st.session_state.quiz_data:
     idx = indices[st.session_state.q_index]
     prev = st.session_state.user_answers.get(idx)
     if prev:
-        st.radio("Lựa chọn của bạn:", q['options'], index=q['options'].index(prev), disabled=True)
-        if prev == q['correct_option']: st.success(f"✅ Chính xác!")
-        else: st.error(f"❌ Sai rồi! Đáp án đúng: {q['correct_option']}")
+        st.radio("Bạn đã chọn:", q['options'], index=q['options'].index(prev), disabled=True)
+        if prev == q['correct_option']: st.success("✅ Đúng rồi!")
+        else: st.error(f"❌ Sai rồi! Đáp án: {q['correct_option']}")
     else:
         with st.form(f"f_{st.session_state.q_index}"):
-            choice = st.radio("Chọn đáp án đúng:", q['options'])
+            choice = st.radio("Chọn đáp án:", q['options'])
             if st.form_submit_button("Chốt đáp án", type="primary"):
                 st.session_state.user_answers[idx] = choice
                 if choice == q['correct_option']: st.session_state.score += 1; st.balloons()
@@ -214,15 +227,16 @@ if 'current_topic_id' in st.session_state and st.session_state.quiz_data:
     st.divider()
     c1, c2 = st.columns(2)
     if c1.button("⬅️ Câu trước", use_container_width=True) and st.session_state.q_index > 0: st.session_state.q_index -= 1; st.rerun()
-    if c2.button("Câu tiếp theo ➡️", use_container_width=True) and st.session_state.q_index < total - 1: st.session_state.q_index += 1; st.rerun()
+    if c2.button("Câu sau ➡️", use_container_width=True) and st.session_state.q_index < total - 1: st.session_state.q_index += 1; st.rerun()
 else:
-    # --- MÀN HÌNH CHÀO KHI MỚI VÀO WEB ---
+    # MÀN HÌNH CHÀO MỚI (UPDATE TITLE)
     st.markdown("""
-        <div style='text-align: center; padding-top: 50px;'>
-            <h1>🚀 Chào mừng bạn đến với Quiz Master Pro</h1>
-            <p style='color: #808495; font-size: 1.2rem;'>Hệ thống ôn thi thông minh - Nhanh, Mạnh, Lưu trữ đám mây</p>
-            <div style='background-color: #f0f2f6; padding: 20px; border-radius: 20px; display: inline-block; margin-top: 30px;'>
-                <p>👉 Hãy chọn một <b>Bộ đề</b> ở danh sách bên trái để bắt đầu ôn tập!</p>
+        <div style='text-align: center; padding-top: 80px;'>
+            <h1 style='font-size: 3rem; color: #1E1E1E;'>Hệ thống ôn thi trắc nghiệm</h1>
+            <p style='color: #808495; font-size: 1.3rem;'>Nhanh - Mạnh - Lưu trữ đám mây</p>
+            <div style='background-color: #f0f2f6; padding: 25px; border-radius: 25px; display: inline-block; margin-top: 40px;'>
+                <p>🚀 <b>Bắt đầu:</b> Chọn một bộ đề từ danh sách bên trái.</p>
+                <p>📂 <b>Thêm đề:</b> Sang tab 'Thêm' để tải file Word lên.</p>
             </div>
         </div>
     """, unsafe_allow_html=True)
