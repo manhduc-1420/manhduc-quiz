@@ -130,16 +130,29 @@ if 'quiz_data' not in st.session_state: st.session_state.quiz_data = []
 if 'q_index' not in st.session_state: st.session_state.q_index = 0
 if 'user_answers' not in st.session_state: st.session_state.user_answers = {}
 if 'quiz_indices' not in st.session_state: st.session_state.quiz_indices = []
+# Trạng thái ẩn/hiện ô nhập mã
+if 'show_lock' not in st.session_state: st.session_state.show_lock = False
 
 with st.sidebar:
     st.title("⚡ Quiz Master Pro")
-    st.caption("manhducdeptrai")
-
-    # --- LỚP BẢO MẬT ADMIN ---
-    admin_pass = st.text_input("Mã Admin để xóa đề:", type="password", help="Chỉ Mạnh Đức mới có mã này")
-    # Đã đổi mã tại đây
-    is_admin = (admin_pass == "manhducdeptrai") 
     
+    # --- KHU VỰC Ổ KHÓA BÍ MẬT ---
+    col_text, col_lock = st.columns([3, 1])
+    col_text.caption("manhducdeptrai")
+    
+    # Nút ổ khóa
+    lock_icon = "🔓" if st.session_state.show_lock else "🔒"
+    if col_lock.button(lock_icon, help="Nhấn để nhập mã Admin"):
+        st.session_state.show_lock = not st.session_state.show_lock
+        st.rerun()
+
+    # Chỉ hiện ô nhập mã nếu bấm vào ổ khóa
+    is_admin = False
+    if st.session_state.show_lock:
+        admin_pass = st.text_input("Nhập mã Admin:", type="password")
+        is_admin = (admin_pass == "manhducdeptrai")
+    # -----------------------------
+
     st.divider()
     tab1, tab2 = st.tabs(["📂 Kho Đề", "➕ Thêm"])
     
@@ -156,6 +169,7 @@ with st.sidebar:
                 st.session_state.user_answers, st.session_state.score, st.session_state.q_index = {}, 0, 0
                 st.rerun()
             
+            # Chỉ hiện nút xóa nếu nhập đúng mật mã
             if is_admin:
                 if c2.button("🗑️", key=f"del_{t_id}"):
                     delete_topic_from_db(t_id); st.rerun()
@@ -173,15 +187,12 @@ with st.sidebar:
 if 'current_topic_id' in st.session_state and st.session_state.quiz_data:
     indices = st.session_state.quiz_indices
     total = len(st.session_state.quiz_data)
-    
     st.markdown(f"### 🎯 Câu {st.session_state.q_index + 1}/{total}")
     
     # Chọn câu nhanh
-    list_nums = list(range(1, total + 1))
-    selected_num = st.selectbox("Nhảy nhanh đến câu:", list_nums, index=st.session_state.q_index)
+    selected_num = st.selectbox("Nhảy đến câu:", range(1, total + 1), index=st.session_state.q_index)
     if selected_num != st.session_state.q_index + 1:
-        st.session_state.q_index = selected_num - 1
-        st.rerun()
+        st.session_state.q_index = selected_num - 1; st.rerun()
 
     q = st.session_state.quiz_data[indices[st.session_state.q_index]]
     st.markdown("---")
@@ -207,4 +218,4 @@ if 'current_topic_id' in st.session_state and st.session_state.quiz_data:
     if c1.button("⬅️ Trước") and st.session_state.q_index > 0: st.session_state.q_index -= 1; st.rerun()
     if c2.button("Sau ➡️") and st.session_state.q_index < total - 1: st.session_state.q_index += 1; st.rerun()
 else:
-    st.info("👈 Chọn đề từ Kho Đề bên trái để bắt đầu.")
+    st.info("👈 Chọn đề từ Kho Đề để bắt đầu.")
