@@ -12,19 +12,14 @@ from datetime import datetime
 # --- CẤU HÌNH TRANG ---
 st.set_page_config(page_title="Hệ thống ôn thi trắc nghiệm", layout="wide", page_icon="📚")
 
-# CSS "TÀNG HÌNH" VÀ GIAO DIỆN TỐI GIẢN
+# CSS "TÀNG HÌNH" TUYỆT ĐỐI
 st.markdown("""
     <style>
-    /* 1. Ẩn thanh header chứa nút Share, Star, Edit, GitHub */
     header {visibility: hidden;}
-    
-    /* 2. Ẩn dòng chữ 'Made with Streamlit' dưới cùng */
     footer {visibility: hidden;}
-    
-    /* 3. Ẩn menu 3 gạch */
     #MainMenu {visibility: hidden;}
 
-    /* 4. Ghost Mode cho thương hiệu manhducdeptrai */
+    /* Ghost Mode cho thương hiệu manhducdeptrai */
     div.stButton > button:first-child {
         border: none;
         background: transparent;
@@ -33,7 +28,6 @@ st.markdown("""
         margin: 0;
         font-size: 0.85rem;
         font-family: sans-serif;
-        font-weight: normal;
         text-align: left;
     }
     div.stButton > button:first-child:hover {
@@ -41,13 +35,12 @@ st.markdown("""
         background: transparent;
     }
     
-    /* Làm đẹp giao diện */
     .stAlert { border-radius: 12px; }
     .stRadio > label { font-size: 1.1rem; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 1. KẾT NỐI (DÙNG CACHE ĐỂ TỐC ĐỘ CAO) ---
+# --- 1. KẾT NỐI (DÙNG CACHE) ---
 @st.cache_resource
 def get_gspread_client():
     try:
@@ -69,10 +62,10 @@ def get_all_topics():
     try:
         ws = sh.worksheet("Topics")
         data = ws.get_all_values()
-        return sorted(data[1:], key=lambda x: x[0], reverse=True) if len(data) > 1 else []
+        return sorted(data[1:], key=x[0], reverse=True) if len(data) > 1 else []
     except: return []
 
-@st.cache_data(show_spinner="Đang truy xuất bộ đề...")
+@st.cache_data(show_spinner="Đang tải dữ liệu...")
 def get_questions_by_topic(topic_id):
     sh = get_db_connection()
     if not sh: return []
@@ -113,10 +106,10 @@ def delete_topic_from_db(topic_id):
         new_rows = [rows[0]] + [r for r in rows[1:] if r[0] != str_tid]
         q_ws.clear(); q_ws.update(new_rows)
         get_all_topics.clear(); get_questions_by_topic.clear()
-        st.toast("Đã xóa bộ đề!", icon="🗑️")
+        st.toast("Đã xóa xong!", icon="🗑️")
     except: pass
 
-# --- 4. XỬ LÝ FILE WORD THÔNG MINH ---
+# --- 4. XỬ LÝ FILE WORD ---
 def is_correct_answer(para):
     if para.style and 'Strong' in para.style.name: return True
     for run in para.runs:
@@ -156,7 +149,7 @@ if 'show_admin' not in st.session_state: st.session_state.show_admin = False
 with st.sidebar:
     st.title("⚡ Quiz Master")
     
-    # NÚT BÍ MẬT manhducdeptrai
+    # NÚT BÍ MẬT manhducdeptrai (Đã xóa caption phụ)
     if st.button("manhducdeptrai"):
         st.session_state.show_admin = not st.session_state.show_admin
         st.rerun()
@@ -169,7 +162,7 @@ with st.sidebar:
     st.divider()
     tab1, tab2 = st.tabs(["📂 Kho Đề", "➕ Thêm"])
     with tab1:
-        if st.button("🔄 Làm mới danh sách"): get_all_topics.clear(); st.rerun()
+        if st.button("🔄 Cập nhật danh sách"): get_all_topics.clear(); st.rerun()
         for row in get_all_topics():
             t_id, t_name = row[0], row[1]
             c1, c2 = st.columns([4, 1])
@@ -195,7 +188,6 @@ with st.sidebar:
 if 'current_topic_id' in st.session_state and st.session_state.quiz_data:
     indices = st.session_state.quiz_indices
     total = len(st.session_state.quiz_data)
-    
     st.markdown(f"### 📖 {next((t[1] for t in get_all_topics() if t[0] == st.session_state.current_topic_id), 'Đang thi')}")
     
     c_nav1, c_nav2 = st.columns([2, 1])
@@ -214,8 +206,8 @@ if 'current_topic_id' in st.session_state and st.session_state.quiz_data:
     prev = st.session_state.user_answers.get(idx)
     if prev:
         st.radio("Bạn đã chọn:", q['options'], index=q['options'].index(prev), disabled=True)
-        if prev == q['correct_option']: st.success("✅ Đúng rồi!")
-        else: st.error(f"❌ Sai rồi! Đáp án: {q['correct_option']}")
+        if prev == q['correct_option']: st.success("✅ Đúng!")
+        else: st.error(f"❌ Sai! Đáp án: {q['correct_option']}")
     else:
         with st.form(f"f_{st.session_state.q_index}"):
             choice = st.radio("Chọn đáp án:", q['options'])
@@ -227,16 +219,14 @@ if 'current_topic_id' in st.session_state and st.session_state.quiz_data:
     st.divider()
     c1, c2 = st.columns(2)
     if c1.button("⬅️ Câu trước", use_container_width=True) and st.session_state.q_index > 0: st.session_state.q_index -= 1; st.rerun()
-    if c2.button("Câu sau ➡️", use_container_width=True) and st.session_state.q_index < total - 1: st.session_state.q_index += 1; st.rerun()
+    if c2.button("Sau ➡️", use_container_width=True) and st.session_state.q_index < total - 1: st.session_state.q_index += 1; st.rerun()
 else:
-    # MÀN HÌNH CHÀO MỚI (UPDATE TITLE)
+    # MÀN HÌNH CHÀO TỐI GIẢN (ĐÃ XÓA TAGLINE)
     st.markdown("""
-        <div style='text-align: center; padding-top: 80px;'>
-            <h1 style='font-size: 3rem; color: #1E1E1E;'>Hệ thống ôn thi trắc nghiệm</h1>
-            <p style='color: #808495; font-size: 1.3rem;'>Nhanh - Mạnh - Lưu trữ đám mây</p>
-            <div style='background-color: #f0f2f6; padding: 25px; border-radius: 25px; display: inline-block; margin-top: 40px;'>
-                <p>🚀 <b>Bắt đầu:</b> Chọn một bộ đề từ danh sách bên trái.</p>
-                <p>📂 <b>Thêm đề:</b> Sang tab 'Thêm' để tải file Word lên.</p>
+        <div style='text-align: center; padding-top: 100px;'>
+            <h1 style='font-size: 3.5rem; color: #1E1E1E;'>Hệ thống ôn thi trắc nghiệm</h1>
+            <div style='background-color: #f0f2f6; padding: 30px; border-radius: 25px; display: inline-block; margin-top: 50px;'>
+                <p style='font-size: 1.2rem;'>🚀 Chọn một bộ đề từ danh sách bên trái để bắt đầu ôn tập.</p>
             </div>
         </div>
     """, unsafe_allow_html=True)
